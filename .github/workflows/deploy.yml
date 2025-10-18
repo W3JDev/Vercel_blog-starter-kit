@@ -1,0 +1,80 @@
+name: 🏛️ Hyperion Empire - Auto Deploy
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    # Run 3x daily at 6 AM, 2 PM, and 8 PM UTC
+    - cron: '0 6,14,20 * * *'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v3
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: 📦 Install Dependencies
+      run: npm ci
+      env:
+        PUPPETEER_SKIP_DOWNLOAD: true
+        
+    - name: 🧪 Verify Installation
+      run: |
+        echo "✅ Dependencies installed"
+        npm list --depth=0 || true
+        
+    - name: 🚀 Deploy to Vercel
+      run: |
+        npm install -g vercel
+        vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }} || true
+        vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} || true
+        vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }} || true
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        
+  generate-content:
+    name: Generate Content
+    runs-on: ubuntu-latest
+    if: github.event.schedule != ''
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v3
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: 📦 Install Dependencies
+      run: npm ci
+      env:
+        PUPPETEER_SKIP_DOWNLOAD: true
+        
+    - name: 🤖 Generate Content
+      run: npm run empire:generate
+      env:
+        GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 📝 Commit Generated Content
+      run: |
+        git config --local user.email "empire@w3jllc.com"
+        git config --local user.name "Hyperion Content Empire"
+        git add content/blog/*.md || true
+        git commit -m "🤖 Auto-generated content" || true
+        git push || true
