@@ -14,9 +14,8 @@
  */
 
 import { config } from 'dotenv';
-import { OpenAI } from 'openai';
-import { Anthropic } from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { Octokit } from '@octokit/rest';
 import cron from 'node-cron';
 import express from 'express';
@@ -26,13 +25,29 @@ import cors from 'cors';
 config();
 
 class HyperionOrchestrator {
-    constructor() {
+    static async create() {
+        const apiKey = await HyperionOrchestrator.getGeminiApiKey();
+        return new HyperionOrchestrator(apiKey);
+    }
+
+    static async getGeminiApiKey() {
+        const client = new SecretManagerServiceClient();
+        const name = 'projects/stellar-state-471406-f8/secrets/GEMINI_API_KEY/versions/latest';
+        try {
+            const [version] = await client.accessSecretVersion({ name });
+            const payload = version.payload.data.toString();
+            return payload;
+        } catch (error) {
+            console.error('❌ Failed to access secret from Secret Manager.', error);
+            throw error;
+        }
+    }
+
+    constructor(apiKey) {
         console.log('🚀 INITIALIZING HYPERION CONTENT EMPIRE...');
         
-        // Neural AI Models (optional - will use fallback if not available)
-        this.openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
-        this.anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
-        this.gemini = process.env.GOOGLE_AI_API_KEY ? new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY) : null;
+        // Neural AI Models
+        this.gemini = new GoogleGenerativeAI(apiKey);
         
         // GitHub Integration (optional - required for auto-publishing)
         this.github = process.env.GITHUB_TOKEN ? new Octokit({ auth: process.env.GITHUB_TOKEN }) : null;
@@ -40,8 +55,8 @@ class HyperionOrchestrator {
         // Empire Configuration
         this.config = {
             owner: 'W3JDev',
-            repo: 'Vercel_blog-starter-kit',
-            blogPath: 'content/blog',
+            repo: 'v0-w3-j-llc-website',
+            blogPath: 'blog',
             contentSchedule: {
                 daily: '0 6,14,20 * * *', // 6 AM, 2 PM, 8 PM
                 weekly: '0 10 * * 6,0'     // Weekend specials
@@ -99,49 +114,59 @@ class HyperionOrchestrator {
     
     async initializeAgents() {
         console.log('🤖 Initializing AI agents...');
+
+        if (!this.gemini) {
+            console.error('❌ Google AI API key not found. Please set GOOGLE_AI_API_KEY in your .env file.');
+            throw new Error('Google AI API key not found.');
+        }
         
+        const model = this.gemini.getGenerativeModel({ model: 'gemini-pro' });
+
         // Initialize Market Oracle Agent
         this.agents.marketOracle = {
             analyzeMarket: async () => {
-                console.log('🔮 Analyzing market trends...');
-                return {
-                    trends: ['AI automation', 'Enterprise solutions', 'Digital transformation'],
-                    targetAudience: 'CTOs and decision makers',
-                    competitorInsights: 'Focus on ROI and implementation guides',
-                    recommendedTopics: ['AI implementation', 'Cost optimization', 'Scalability']
-                };
+                console.log('🔮 Analyzing market trends with Gemini Pro...');
+                try {
+                    const prompt = 'Analyze the current market trends for AI in enterprise, focusing on automation, digital transformation, and ROI. Identify key trends, target audience (CTOs, decision-makers), competitor insights, and recommend 3-5 hot blog post topics. Return the response as a JSON object with the following keys: "trends", "targetAudience", "competitorInsights", "recommendedTopics".';
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const text = response.text();
+                    return JSON.parse(text);
+                } catch (error) {
+                    console.error('❌ Market Oracle analysis failed:', error);
+                    throw error;
+                }
             }
         };
         
         // Initialize Content Empire Builder
         this.agents.contentEmpireBuilder = {
             buildContentStrategy: async (marketData) => {
-                console.log('🏗️ Building content strategy...');
-                return {
-                    topic: marketData.recommendedTopics[0],
-                    angle: 'Enterprise implementation guide',
-                    targetKeywords: ['AI automation', 'enterprise AI', 'digital transformation'],
-                    contentType: 'Technical deep-dive',
-                    cta: 'Book a free consultation'
-                };
+                console.log('🏗️ Building content strategy with Gemini Pro...');
+                try {
+                    const prompt = `Based on the following market analysis, build a content strategy for a blog post:\n\n${JSON.stringify(marketData, null, 2)}\n\nDefine a specific topic, a compelling angle, target keywords, content type (e.g., technical deep-dive), and a strong call-to-action. Return the response as a JSON object with the following keys: "topic", "angle", "targetKeywords", "contentType", "cta".`;
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const text = response.text();
+                    return JSON.parse(text);
+                } catch (error) {
+                    console.error('❌ Content Empire Builder failed:', error);
+                    throw error;
+                }
             }
         };
         
         // Initialize Quantum Writer
         this.agents.quantumWriter = {
             generateQuantumContent: async (strategy) => {
-                console.log('✨ Generating quantum content using multi-AI fusion...');
-                
-                // Use Gemini as primary (free tier)
-                if (this.gemini) {
-                    try {
-                        const model = this.gemini.getGenerativeModel({ model: 'gemini-pro' });
-                        
-                        const prompt = `Write a comprehensive, enterprise-focused blog post about ${strategy.topic}.
+                console.log('✨ Generating quantum content with Gemini Pro...');
+                try {
+                    const prompt = `Write a comprehensive, enterprise-focused blog post about ${strategy.topic}.
                         
 Target Audience: CTOs and Enterprise Decision Makers
 Content Type: ${strategy.contentType}
 Keywords: ${strategy.targetKeywords.join(', ')}
+Angle: ${strategy.angle}
 Tone: Professional, authoritative, data-driven
 
 Structure:
@@ -156,89 +181,20 @@ Structure:
 
 Make it actionable, specific, and worth $25,000 in business value.`;
 
-                        const result = await model.generateContent(prompt);
-                        const response = await result.response;
-                        return response.text();
-                    } catch (error) {
-                        console.log('⚠️ Gemini API error, using fallback content...', error.message);
-                    }
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    return response.text();
+                } catch (error) {
+                    console.error('❌ Quantum Writer failed:', error);
+                    throw error;
                 }
-                
-                // Fallback content if API fails or not configured
-                console.log('ℹ️ Using fallback content generation...');
-                return this.generateFallbackContent(strategy);
             }
         };
         
         console.log('✅ All agents initialized successfully');
     }
     
-    generateFallbackContent(strategy) {
-        const timestamp = new Date().toISOString();
-        return `# Transforming Enterprise Operations with ${strategy.topic}
 
-## Executive Summary
-
-In today's rapidly evolving digital landscape, enterprises face unprecedented challenges in scaling operations while maintaining efficiency. This comprehensive guide explores how ${strategy.topic} can deliver measurable ROI and competitive advantages.
-
-## The Challenge
-
-Modern enterprises are grappling with:
-- Legacy system limitations
-- Scalability bottlenecks  
-- Rising operational costs
-- Market pressure for digital transformation
-
-## The Solution: ${strategy.topic}
-
-${strategy.topic} represents a paradigm shift in how enterprises approach automation and efficiency. Key benefits include:
-
-1. **Cost Reduction**: Up to 40% reduction in operational expenses
-2. **Scalability**: Handle 10x growth without proportional cost increases
-3. **Speed**: 5x faster deployment compared to traditional methods
-4. **Reliability**: 99.9% uptime with automated failover
-
-## Implementation Roadmap
-
-### Phase 1: Assessment (Weeks 1-2)
-- Current state analysis
-- ROI modeling
-- Technology stack evaluation
-
-### Phase 2: Pilot (Weeks 3-6)
-- Limited deployment
-- Performance monitoring
-- Iterative optimization
-
-### Phase 3: Scale (Weeks 7-12)
-- Full production rollout
-- Team training
-- Continuous improvement
-
-## ROI Analysis
-
-Expected returns within 12 months:
-- **Direct Cost Savings**: $250,000+
-- **Productivity Gains**: 30% improvement
-- **Time to Market**: 50% reduction
-- **Customer Satisfaction**: 25% increase
-
-## Real-World Success
-
-W3J LLC has successfully implemented similar solutions across multiple industries:
-
-- **SereneAI**: 95% booking automation for beauty businesses
-- **GuestAI**: 40% increase in restaurant efficiency
-- **VineAI**: Data-driven decisions improving ROI by 300%
-
-## Get Started Today
-
-Ready to transform your enterprise operations? ${strategy.cta} at [w3jdev.com](https://w3jdev.com).
-
----
-*Generated by Hyperion Content Empire | ${timestamp}*
-`;
-    }
     
     async startAutomatedGeneration() {
         console.log('⏰ Setting up automated content generation schedule...');
@@ -462,17 +418,19 @@ featured: ${options.scheduled ? 'true' : 'false'}
 
 // EMPIRE ACTIVATION SEQUENCE
 if (import.meta.url === `file://${process.argv[1]}`) {
-    console.log('🔥 ACTIVATING HYPERION CONTENT EMPIRE...');
-    
-    const empire = new HyperionOrchestrator();
-    
-    // Handle graceful shutdown
-    process.on('SIGINT', () => {
-        console.log('\n🏛️ EMPIRE SHUTTING DOWN GRACEFULLY...');
-        console.log('✅ All neural agents deactivated');
-        console.log('👑 BY JUPITER, THE EMPIRE WILL RETURN!');
-        process.exit(0);
-    });
+    (async () => {
+        console.log('🔥 ACTIVATING HYPERION CONTENT EMPIRE...');
+        
+        const empire = await HyperionOrchestrator.create();
+        
+        // Handle graceful shutdown
+        process.on('SIGINT', () => {
+            console.log('\n🏛️ EMPIRE SHUTTING DOWN GRACEFULLY...');
+            console.log('✅ All neural agents deactivated');
+            console.log('👑 BY JUPITER, THE EMPIRE WILL RETURN!');
+            process.exit(0);
+        });
+    })();
 }
 
 export default HyperionOrchestrator;
