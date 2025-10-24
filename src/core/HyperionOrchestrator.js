@@ -64,7 +64,8 @@ class HyperionOrchestrator {
         this.gemini = new GoogleGenerativeAI(apiKey);
         
         // GitHub Integration (optional - required for auto-publishing)
-        this.github = process.env.GITHUB_TOKEN ? new Octokit({ auth: process.env.GITHUB_TOKEN }) : null;
+        this.github = (process.env.BLOG_GITHUB_TOKEN || process.env.GITHUB_TOKEN) ? 
+            new Octokit({ auth: process.env.BLOG_GITHUB_TOKEN || process.env.GITHUB_TOKEN }) : null;
         
         // Load repository config from package.json
         this.repoConfig = this.loadRepositoryConfig();
@@ -434,10 +435,10 @@ featured: ${options.scheduled ? 'true' : 'false'}
                 console.error(`❌ Attempt ${attempt} failed:`, error.message);
                 
                 if (error.status === 404) {
-                    console.error('❌ Repository not found or no access. Check GITHUB_TOKEN permissions and repository name.');
+                    console.error('❌ Repository not found or no access. Check BLOG_GITHUB_TOKEN permissions and repository name.');
                     console.error(`   Expected: ${this.config.owner}/${this.config.repo}`);
                 } else if (error.status === 403) {
-                    console.error('❌ Forbidden: GITHUB_TOKEN may lack write permissions to this repository.');
+                    console.error('❌ Forbidden: BLOG_GITHUB_TOKEN may lack write permissions to this repository.');
                 } else if (error.status === 409) {
                     console.log('⚠️ File may already exist, trying update...');
                 } else if (error.status === 422) {
