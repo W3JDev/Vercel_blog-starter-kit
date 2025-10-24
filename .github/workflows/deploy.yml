@@ -67,14 +67,17 @@ jobs:
       run: npm run empire:generate
       env:
         GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        BLOG_GITHUB_TOKEN: ${{ secrets.BLOG_GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.BLOG_GITHUB_TOKEN }}
+        BLOG_TARGET_OWNER: ${{ secrets.BLOG_TARGET_OWNER }}
+        BLOG_TARGET_REPO: ${{ secrets.BLOG_TARGET_REPO }}
+        BLOG_CONTENT_PATH: ${{ secrets.BLOG_CONTENT_PATH }}
         
-    - name: 📝 Commit Generated Content
+    - name: 📝 Content Published
       run: |
-        git config --local user.email "empire@w3jllc.com"
-        git config --local user.name "Hyperion Content Empire"
-        git add content/blog/*.md || true
-        git commit -m "🤖 Auto-generated content" || true
-        git push || true
+        echo "✅ Content generation completed"
+        echo "🎯 Blog posts published to: ${{ secrets.BLOG_TARGET_OWNER }}/${{ secrets.BLOG_TARGET_REPO }}"
+        echo "🌐 Live blog will be available at: https://w3jdev.com/blog/"
