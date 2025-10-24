@@ -7,11 +7,21 @@ export function parseModelJson(text) {
     let cleaned = text.replace(/```\w*\n?/g, '').replace(/```/g, '').trim();
     cleaned = cleaned.replace(/`{1,3}/g, '').trim();
 
-    // If the response is wrapped in markdown block like ```json { ... } ```
-    // the above cleaning should handle it. Attempt direct parse first.
+    // Try to fix common JSON issues in AI responses
     try {
+        // First attempt: direct parse
         return JSON.parse(cleaned);
     } catch (err) {
+        // Try to fix unescaped quotes in strings
+        try {
+            // Fix unescaped quotes within array values
+            let fixed = cleaned.replace(/"([^"]*)"([^,"}\]\n]*)"([^"]*)"([^,"}\]\n]*)"([^"]*)"/, '"$1\\"$2\\"$3\\"$4\\"$5"');
+            // Fix other common patterns
+            fixed = fixed.replace(/Capgemini"/g, 'Capgemini\\"');
+            return JSON.parse(fixed);
+        } catch (err2) {
+            // Continue to other fallbacks
+        }
         // Fallback: try to extract the first JSON object/brackets in the string
         const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

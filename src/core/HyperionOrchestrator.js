@@ -73,7 +73,7 @@ class HyperionOrchestrator {
         this.config = {
             owner: this.repoConfig.owner,
             repo: this.repoConfig.repo,
-            blogPath: 'content/blog',
+            blogPath: process.env.BLOG_CONTENT_PATH || 'content/blog',
             contentSchedule: {
                 daily: '0 6,14,20 * * *', // 6 AM, 2 PM, 8 PM
                 weekly: '0 10 * * 6,0'     // Weekend specials
@@ -213,6 +213,19 @@ Make it actionable, specific, and worth $25,000 in business value.`;
     }
     
     loadRepositoryConfig() {
+        // Check for environment variable override for blog target repository
+        const targetOwner = process.env.BLOG_TARGET_OWNER;
+        const targetRepo = process.env.BLOG_TARGET_REPO;
+        
+        if (targetOwner && targetRepo) {
+            console.log(`🎯 Using environment override: Publishing to ${targetOwner}/${targetRepo}`);
+            return {
+                owner: targetOwner,
+                repo: targetRepo,
+                fullName: `${targetOwner}/${targetRepo}`
+            };
+        }
+
         try {
             // Import package.json to get repository information (ES module compatible)
             const fs = eval('require')('fs');
@@ -232,19 +245,19 @@ Make it actionable, specific, and worth $25,000 in business value.`;
                 }
             }
             
-            // Fallback to hardcoded values
-            console.log('⚠️ Could not parse repository from package.json, using fallback');
+            // Fallback to main website repository (W3J LLC Website)
+            console.log('⚠️ Could not parse repository from package.json, using main website');
             return {
                 owner: 'W3JDev',
-                repo: 'Vercel_blog-starter-kit',
-                fullName: 'W3JDev/Vercel_blog-starter-kit'
+                repo: 'v0-w3-j-llc-website',
+                fullName: 'W3JDev/v0-w3-j-llc-website'
             };
         } catch (error) {
-            console.log('⚠️ Error reading package.json, using fallback repository config');
+            console.log('⚠️ Error reading package.json, using main website repository');
             return {
                 owner: 'W3JDev',
-                repo: 'Vercel_blog-starter-kit',
-                fullName: 'W3JDev/Vercel_blog-starter-kit'
+                repo: 'v0-w3-j-llc-website',
+                fullName: 'W3JDev/v0-w3-j-llc-website'
             };
         }
     }
