@@ -20,6 +20,7 @@ import { Octokit } from '@octokit/rest';
 import cron from 'node-cron';
 import express from 'express';
 import cors from 'cors';
+import { parseModelJson } from './utils/parseModelResponse.js';
 
 // Load environment variables
 config();
@@ -31,15 +32,28 @@ class HyperionOrchestrator {
     }
 
     static async getGeminiApiKey() {
+        // First try environment variable (local development)
+        console.log('🔍 Checking environment variables...');
+        console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
+        console.log('GOOGLE_AI_API_KEY exists:', !!process.env.GOOGLE_AI_API_KEY);
+        
+        const envApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+        if (envApiKey) {
+            console.log('✅ Using Gemini API key from environment variable (length:', envApiKey.length, ')');
+            return envApiKey;
+        }
+
+        // Fallback to Google Cloud Secret Manager (production)
         const client = new SecretManagerServiceClient();
         const name = 'projects/stellar-state-471406-f8/secrets/GEMINI_API_KEY/versions/latest';
         try {
             const [version] = await client.accessSecretVersion({ name });
             const payload = version.payload.data.toString();
+            console.log('✅ Using Google AI API key from Secret Manager');
             return payload;
         } catch (error) {
-            console.error('❌ Failed to access secret from Secret Manager.', error);
-            throw error;
+            console.error('❌ Failed to access secret from Secret Manager and no GOOGLE_AI_API_KEY environment variable found.');
+            throw new Error('Google AI API key not found. Please set GOOGLE_AI_API_KEY in your .env file or configure Secret Manager.');
         }
     }
 
@@ -52,11 +66,14 @@ class HyperionOrchestrator {
         // GitHub Integration (optional - required for auto-publishing)
         this.github = process.env.GITHUB_TOKEN ? new Octokit({ auth: process.env.GITHUB_TOKEN }) : null;
         
+        // Load repository config from package.json
+        this.repoConfig = this.loadRepositoryConfig();
+        
         // Empire Configuration
         this.config = {
-            owner: 'W3JDev',
-            repo: 'v0-w3-j-llc-website',
-            blogPath: 'blog',
+            owner: this.repoConfig.owner,
+            repo: this.repoConfig.repo,
+            blogPath: 'content/blog',
             contentSchedule: {
                 daily: '0 6,14,20 * * *', // 6 AM, 2 PM, 8 PM
                 weekly: '0 10 * * 6,0'     // Weekend specials
@@ -120,7 +137,7 @@ class HyperionOrchestrator {
             throw new Error('Google AI API key not found.');
         }
         
-        const model = this.gemini.getGenerativeModel({ model: 'gemini-pro' });
+        const model = this.gemini.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         // Initialize Market Oracle Agent
         this.agents.marketOracle = {
@@ -130,8 +147,9 @@ class HyperionOrchestrator {
                     const prompt = 'Analyze the current market trends for AI in enterprise, focusing on automation, digital transformation, and ROI. Identify key trends, target audience (CTOs, decision-makers), competitor insights, and recommend 3-5 hot blog post topics. Return the response as a JSON object with the following keys: "trends", "targetAudience", "competitorInsights", "recommendedTopics".';
                     const result = await model.generateContent(prompt);
                     const response = await result.response;
-                    const text = response.text();
-                    return JSON.parse(text);
+                    let text = response.text();
+                    // Use robust parser that strips markdown fences and extracts JSON
+                    return parseModelJson(text);
                 } catch (error) {
                     console.error('❌ Market Oracle analysis failed:', error);
                     throw error;
@@ -147,8 +165,8 @@ class HyperionOrchestrator {
                     const prompt = `Based on the following market analysis, build a content strategy for a blog post:\n\n${JSON.stringify(marketData, null, 2)}\n\nDefine a specific topic, a compelling angle, target keywords, content type (e.g., technical deep-dive), and a strong call-to-action. Return the response as a JSON object with the following keys: "topic", "angle", "targetKeywords", "contentType", "cta".`;
                     const result = await model.generateContent(prompt);
                     const response = await result.response;
-                    const text = response.text();
-                    return JSON.parse(text);
+                    let text = response.text();
+                    return parseModelJson(text);
                 } catch (error) {
                     console.error('❌ Content Empire Builder failed:', error);
                     throw error;
@@ -194,8 +212,43 @@ Make it actionable, specific, and worth $25,000 in business value.`;
         console.log('✅ All agents initialized successfully');
     }
     
+    loadRepositoryConfig() {
+        try {
+            // Import package.json to get repository information (ES module compatible)
+            const fs = eval('require')('fs');
+            const path = eval('require')('path');
+            const packagePath = path.join(process.cwd(), 'package.json');
+            const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+            
+            if (packageJson.repository && packageJson.repository.url) {
+                // Parse GitHub URL: https://github.com/owner/repo.git
+                const match = packageJson.repository.url.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
+                if (match) {
+                    return {
+                        owner: match[1],
+                        repo: match[2],
+                        fullName: `${match[1]}/${match[2]}`
+                    };
+                }
+            }
+            
+            // Fallback to hardcoded values
+            console.log('⚠️ Could not parse repository from package.json, using fallback');
+            return {
+                owner: 'W3JDev',
+                repo: 'Vercel_blog-starter-kit',
+                fullName: 'W3JDev/Vercel_blog-starter-kit'
+            };
+        } catch (error) {
+            console.log('⚠️ Error reading package.json, using fallback repository config');
+            return {
+                owner: 'W3JDev',
+                repo: 'Vercel_blog-starter-kit',
+                fullName: 'W3JDev/Vercel_blog-starter-kit'
+            };
+        }
+    }
 
-    
     async startAutomatedGeneration() {
         console.log('⏰ Setting up automated content generation schedule...');
         
@@ -291,6 +344,7 @@ featured: ${options.scheduled ? 'true' : 'false'}
     
     async publishToGitHub(content, options = {}) {
         console.log('🚀 PUBLISHING TO GITHUB REPOSITORY...');
+        console.log(`📋 Repository: ${this.config.owner}/${this.config.repo}`);
         
         // Generate file name from content
         const timestamp = new Date().toISOString().split('T')[0];
@@ -305,15 +359,171 @@ featured: ${options.scheduled ? 'true' : 'false'}
         // Check if GitHub is configured
         if (!this.github) {
             console.log('⚠️ GitHub not configured - saving content locally...');
+            return await this.saveLocally(formattedContent, title, slug, fileName, filePath);
+        }
+        
+        try {
+            // Attempt direct commit with retry logic
+            const result = await this.attemptGitHubPublish(filePath, formattedContent, title, slug, fileName);
+            if (result.success) {
+                return result;
+            }
             
-            // Save to local file system instead
+            // If direct commit fails, try PR approach
+            console.log('🔄 Attempting to create pull request instead...');
+            const prResult = await this.createPullRequest(filePath, formattedContent, title, slug, fileName);
+            if (prResult.success) {
+                return prResult;
+            }
+            
+            // Final fallback to local save
+            console.log('⚠️ All GitHub methods failed, saving locally');
+            return await this.saveLocally(formattedContent, title, slug, fileName, filePath);
+            
+        } catch (error) {
+            console.error('❌ GITHUB PUBLISHING FAILED:', error.message);
+            return await this.saveLocally(formattedContent, title, slug, fileName, filePath);
+        }
+    }
+    
+    async attemptGitHubPublish(filePath, content, title, slug, fileName, retries = 2) {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                console.log(`🔄 Publishing attempt ${attempt}/${retries} to ${this.config.owner}/${this.config.repo}`);
+                
+                const response = await this.github.rest.repos.createOrUpdateFileContents({
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: filePath,
+                    message: `🤖 Auto-generated: ${title}`,
+                    content: Buffer.from(content).toString('base64'),
+                    committer: {
+                        name: 'Hyperion Content Empire',
+                        email: 'empire@w3jllc.com'
+                    }
+                });
+                
+                console.log('✅ CONTENT SUCCESSFULLY PUBLISHED TO MAIN BRANCH!');
+                
+                return {
+                    title,
+                    slug,
+                    fileName,
+                    filePath,
+                    githubUrl: response.data.content.html_url,
+                    liveUrl: `https://w3jdev.com/blog/${slug}`,
+                    timestamp: new Date(),
+                    success: true,
+                    method: 'direct-commit'
+                };
+                
+            } catch (error) {
+                console.error(`❌ Attempt ${attempt} failed:`, error.message);
+                
+                if (error.status === 404) {
+                    console.error('❌ Repository not found or no access. Check GITHUB_TOKEN permissions and repository name.');
+                    console.error(`   Expected: ${this.config.owner}/${this.config.repo}`);
+                } else if (error.status === 403) {
+                    console.error('❌ Forbidden: GITHUB_TOKEN may lack write permissions to this repository.');
+                } else if (error.status === 409) {
+                    console.log('⚠️ File may already exist, trying update...');
+                } else if (error.status === 422) {
+                    console.error('❌ Validation failed: Check file path and content format.');
+                }
+                
+                if (attempt === retries) {
+                    return { success: false, error: error.message, lastAttempt: attempt };
+                }
+                
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+        
+        return { success: false, error: 'Max retries exceeded' };
+    }
+    
+    async createPullRequest(filePath, content, title, slug, fileName) {
+        try {
+            const branchName = `auto-content/${slug}-${Date.now()}`;
+            
+            // Get default branch info
+            const { data: repo } = await this.github.rest.repos.get({
+                owner: this.config.owner,
+                repo: this.config.repo
+            });
+            
+            // Get the latest commit SHA from main/default branch
+            const { data: ref } = await this.github.rest.git.getRef({
+                owner: this.config.owner,
+                repo: this.config.repo,
+                ref: `heads/${repo.default_branch}`
+            });
+            
+            // Create new branch
+            await this.github.rest.git.createRef({
+                owner: this.config.owner,
+                repo: this.config.repo,
+                ref: `refs/heads/${branchName}`,
+                sha: ref.object.sha
+            });
+            
+            // Create file in new branch
+            await this.github.rest.repos.createOrUpdateFileContents({
+                owner: this.config.owner,
+                repo: this.config.repo,
+                path: filePath,
+                message: `🤖 Auto-generated: ${title}`,
+                content: Buffer.from(content).toString('base64'),
+                branch: branchName,
+                committer: {
+                    name: 'Hyperion Content Empire',
+                    email: 'empire@w3jllc.com'
+                }
+            });
+            
+            // Create pull request
+            const { data: pr } = await this.github.rest.pulls.create({
+                owner: this.config.owner,
+                repo: this.config.repo,
+                title: `🤖 Add new blog post: ${title}`,
+                head: branchName,
+                base: repo.default_branch,
+                body: `# Auto-generated Content\n\n**Title:** ${title}\n**Slug:** ${slug}\n\nThis content was automatically generated by the Hyperion Content Empire system.\n\n## Review Checklist\n- [ ] Content quality\n- [ ] SEO optimization\n- [ ] Formatting\n- [ ] Links and references\n\n_Auto-merge recommended if content passes review._`
+            });
+            
+            console.log('✅ PULL REQUEST CREATED SUCCESSFULLY!');
+            console.log(`🔗 PR URL: ${pr.html_url}`);
+            
+            return {
+                title,
+                slug,
+                fileName,
+                filePath,
+                githubUrl: pr.html_url,
+                liveUrl: `https://w3jdev.com/blog/${slug}`,
+                timestamp: new Date(),
+                success: true,
+                method: 'pull-request',
+                prNumber: pr.number,
+                branchName
+            };
+            
+        } catch (error) {
+            console.error('❌ PULL REQUEST CREATION FAILED:', error.message);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    async saveLocally(content, title, slug, fileName, filePath) {
+        try {
             const fs = await import('fs');
             const path = await import('path');
+            
             const fullPath = path.join(process.cwd(), filePath);
             
-            // Create directory if it doesn't exist
             await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
-            await fs.promises.writeFile(fullPath, formattedContent);
+            await fs.promises.writeFile(fullPath, content);
             
             console.log(`✅ CONTENT SAVED LOCALLY: ${filePath}`);
             
@@ -326,61 +536,12 @@ featured: ${options.scheduled ? 'true' : 'false'}
                 liveUrl: `https://w3jdev.com/blog/${slug}`,
                 timestamp: new Date(),
                 success: true,
-                local: true
-            };
-        }
-        
-        try {
-            // Create/update file in GitHub
-            const response = await this.github.rest.repos.createOrUpdateFileContents({
-                owner: this.config.owner,
-                repo: this.config.repo,
-                path: filePath,
-                message: `🤖 Auto-generated: ${title}`,
-                content: Buffer.from(formattedContent).toString('base64'),
-                committer: {
-                    name: 'Hyperion Content Empire',
-                    email: 'empire@w3jllc.com'
-                }
-            });
-            
-            console.log('✅ CONTENT SUCCESSFULLY PUBLISHED!');
-            
-            return {
-                title,
-                slug,
-                fileName,
-                filePath,
-                githubUrl: response.data.content.html_url,
-                liveUrl: `https://w3jdev.com/blog/${slug}`,
-                timestamp: new Date(),
-                success: true
-            };
-            
-        } catch (error) {
-            console.error('❌ GITHUB PUBLISHING FAILED:', error.message);
-            
-            // Fallback to local save
-            const fs = await import('fs');
-            const path = await import('path');
-            const fullPath = path.join(process.cwd(), filePath);
-            await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
-            await fs.promises.writeFile(fullPath, formattedContent);
-            
-            console.log(`⚠️ Saved locally instead: ${filePath}`);
-            
-            return {
-                title,
-                slug,
-                fileName,
-                filePath,
-                githubUrl: `Local file: ${fullPath}`,
-                liveUrl: `https://w3jdev.com/blog/${slug}`,
-                timestamp: new Date(),
-                success: true,
                 local: true,
-                error: error.message
+                method: 'local-save'
             };
+        } catch (error) {
+            console.error('❌ LOCAL SAVE FAILED:', error.message);
+            throw error;
         }
     }
     

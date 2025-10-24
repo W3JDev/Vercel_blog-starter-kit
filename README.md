@@ -71,10 +71,11 @@ npm --version   # Latest
 Create a `.env` file in the root directory:
 
 ```env
-# AI MODEL KEYS
-OPENAI_API_KEY=your_openai_api_key_here
-ANTHROPIC_API_KEY=your_anthropic_api_key_here  
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+# AI MODEL KEYS (Get free Gemini key at https://aistudio.google.com/app/apikey)
+GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here  # Legacy support
+OPENAI_API_KEY=your_openai_api_key_here         # Optional
+ANTHROPIC_API_KEY=your_anthropic_api_key_here   # Optional
 
 # GITHUB INTEGRATION
 GITHUB_TOKEN=your_github_token_here

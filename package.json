@@ -8,6 +8,7 @@
     "dev": "node --watch src/core/HyperionOrchestrator.js",
     "build": "next build",
     "start": "next start",
+    "test": "node test/parseModelResponse.test.js",
     "empire:activate": "node src/scripts/activateEmpire.js",
     "empire:generate": "node src/agents/ContentGenerator.js",
     "empire:deploy": "npm run build && vercel deploy --prod",

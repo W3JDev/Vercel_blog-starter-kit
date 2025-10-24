@@ -25,8 +25,9 @@ The system works WITHOUT any API keys! But for AI-powered content, you can add:
 cp .env.example .env
 
 # Get a FREE Google Gemini API key (recommended)
-# Visit: https://makersuite.google.com/app/apikey
-# Add it to .env as: GOOGLE_AI_API_KEY=your_key_here
+# Visit: https://aistudio.google.com/app/apikey
+# Add it to .env as: GEMINI_API_KEY=your_key_here
+# (Legacy GOOGLE_AI_API_KEY also supported)
 ```
 
 ## 🏛️ Step 3: Start the Empire
@@ -130,8 +131,8 @@ echo "PORT=3002" >> .env
 
 ### "API key error"
 The system works without API keys! But if you want AI features:
-1. Get free key at https://makersuite.google.com/app/apikey
-2. Add to `.env`: `GOOGLE_AI_API_KEY=your_key`
+1. Get free key at https://aistudio.google.com/app/apikey
+2. Add to `.env`: `GEMINI_API_KEY=your_key`
 
 ## 🎉 Success!
 
