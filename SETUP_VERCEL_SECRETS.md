@@ -18,25 +18,25 @@
 #### Secret 1: VERCEL_TOKEN
 ```
 Name: VERCEL_TOKEN
-Value: DE5sqzAC61EvLt4EzvusN9ib
+Value:YOUR_API_KEY
 ```
 
 #### Secret 2: VERCEL_ORG_ID  
 ```
 Name: VERCEL_ORG_ID
-Value: team_rdZMxozVlmzhPtuAp4zLVQIN
+Value: YOUR_API_KEY
 ```
 
 #### Secret 3: VERCEL_PROJECT_ID
 ```
 Name: VERCEL_PROJECT_ID
-Value: prj_Dzu1LoTtDwtHieiuEG1jhP5t31AQ
+Value: YOUR_API_KEY
 ```
 
 #### Secret 4: GEMINI_API_KEY (Optional - for content generation)
 ```
 Name: GEMINI_API_KEY
-Value: AIzaSyA8_f0LP3C21YZW-lc9ZiGJXGk94PqzHms
+Value: YOUR_API_KEY
 ```
 
 ## 📊 What Will Happen Next
@@ -55,8 +55,8 @@ Value: AIzaSyA8_f0LP3C21YZW-lc9ZiGJXGk94PqzHms
 
 ### Your Vercel Project Details:
 - **Team**: MN Jewel's projects (`mn-jewels-projects`)
-- **Team ID**: `team_rdZMxozVlmzhPtuAp4zLVQIN`
-- **Project ID**: `prj_Dzu1LoTtDwtHieiuEG1jhP5t31AQ`
+- **Team ID**: `YOUR_API_KEY`
+- **Project ID**: `YOUR_API_KEY`
 - **Token**: Configured ✅
 
 ### Expected Deployment URL:
