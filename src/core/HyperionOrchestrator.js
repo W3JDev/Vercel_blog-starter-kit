@@ -14,54 +14,27 @@
  */
 
 import { config } from 'dotenv';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { Octokit } from '@octokit/rest';
 import cron from 'node-cron';
 import express from 'express';
 import cors from 'cors';
-import { parseModelJson } from './utils/parseModelResponse.js';
+import { AIProviderFactory } from './providers/AIProviderFactory.js';
 
 // Load environment variables
 config();
 
 class HyperionOrchestrator {
     static async create() {
-        const apiKey = await HyperionOrchestrator.getGeminiApiKey();
-        return new HyperionOrchestrator(apiKey);
+        const aiProvider = await AIProviderFactory.createProvider();
+        return new HyperionOrchestrator(aiProvider);
     }
 
-    static async getGeminiApiKey() {
-        // First try environment variable (local development)
-        console.log('🔍 Checking environment variables...');
-        console.log('GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
-        console.log('GOOGLE_AI_API_KEY exists:', !!process.env.GOOGLE_AI_API_KEY);
-        
-        const envApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-        if (envApiKey) {
-            console.log('✅ Using Gemini API key from environment variable (length:', envApiKey.length, ')');
-            return envApiKey;
-        }
-
-        // Fallback to Google Cloud Secret Manager (production)
-        const client = new SecretManagerServiceClient();
-        const name = 'projects/stellar-state-471406-f8/secrets/GEMINI_API_KEY/versions/latest';
-        try {
-            const [version] = await client.accessSecretVersion({ name });
-            const payload = version.payload.data.toString();
-            console.log('✅ Using Google AI API key from Secret Manager');
-            return payload;
-        } catch (error) {
-            console.error('❌ Failed to access secret from Secret Manager and no GOOGLE_AI_API_KEY environment variable found.');
-            throw new Error('Google AI API key not found. Please set GOOGLE_AI_API_KEY in your .env file or configure Secret Manager.');
-        }
-    }
-
-    constructor(apiKey) {
+    constructor(aiProvider) {
         console.log('🚀 INITIALIZING HYPERION CONTENT EMPIRE...');
         
-        // Neural AI Models
-        this.gemini = new GoogleGenerativeAI(apiKey);
+        // AI Provider (with automatic fallback)
+        this.aiProvider = aiProvider;
+        console.log(`🤖 Active AI Provider: ${this.aiProvider.getName()}`);
         
         // GitHub Integration (optional - required for auto-publishing)
         this.github = (process.env.BLOG_GITHUB_TOKEN || process.env.GITHUB_TOKEN) ? 
@@ -133,24 +106,20 @@ class HyperionOrchestrator {
     async initializeAgents() {
         console.log('🤖 Initializing AI agents...');
 
-        if (!this.gemini) {
-            console.error('❌ Google AI API key not found. Please set GOOGLE_AI_API_KEY in your .env file.');
-            throw new Error('Google AI API key not found.');
+        if (!this.aiProvider) {
+            console.error('❌ AI provider not available');
+            throw new Error('AI provider not available');
         }
         
-        const model = this.gemini.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        console.log(`✅ Using ${this.aiProvider.getName()} for content generation`);
 
         // Initialize Market Oracle Agent
         this.agents.marketOracle = {
             analyzeMarket: async () => {
-                console.log('🔮 Analyzing market trends with Gemini Pro...');
+                console.log(`🔮 Analyzing market trends with ${this.aiProvider.getName()}...`);
                 try {
                     const prompt = 'Analyze the current market trends for AI in enterprise, focusing on automation, digital transformation, and ROI. Identify key trends, target audience (CTOs, decision-makers), competitor insights, and recommend 3-5 hot blog post topics. Return the response as a JSON object with the following keys: "trends", "targetAudience", "competitorInsights", "recommendedTopics".';
-                    const result = await model.generateContent(prompt);
-                    const response = await result.response;
-                    let text = response.text();
-                    // Use robust parser that strips markdown fences and extracts JSON
-                    return parseModelJson(text);
+                    return await this.aiProvider.generateJSON(prompt);
                 } catch (error) {
                     console.error('❌ Market Oracle analysis failed:', error);
                     throw error;
@@ -161,13 +130,10 @@ class HyperionOrchestrator {
         // Initialize Content Empire Builder
         this.agents.contentEmpireBuilder = {
             buildContentStrategy: async (marketData) => {
-                console.log('🏗️ Building content strategy with Gemini Pro...');
+                console.log(`🏗️ Building content strategy with ${this.aiProvider.getName()}...`);
                 try {
                     const prompt = `Based on the following market analysis, build a content strategy for a blog post:\n\n${JSON.stringify(marketData, null, 2)}\n\nDefine a specific topic, a compelling angle, target keywords, content type (e.g., technical deep-dive), and a strong call-to-action. Return the response as a JSON object with the following keys: "topic", "angle", "targetKeywords", "contentType", "cta".`;
-                    const result = await model.generateContent(prompt);
-                    const response = await result.response;
-                    let text = response.text();
-                    return parseModelJson(text);
+                    return await this.aiProvider.generateJSON(prompt);
                 } catch (error) {
                     console.error('❌ Content Empire Builder failed:', error);
                     throw error;
@@ -178,7 +144,7 @@ class HyperionOrchestrator {
         // Initialize Quantum Writer
         this.agents.quantumWriter = {
             generateQuantumContent: async (strategy) => {
-                console.log('✨ Generating quantum content with Gemini Pro...');
+                console.log(`✨ Generating quantum content with ${this.aiProvider.getName()}...`);
                 try {
                     const prompt = `Write a comprehensive, enterprise-focused blog post about ${strategy.topic}.
                         
@@ -200,9 +166,7 @@ Structure:
 
 Make it actionable, specific, and worth $25,000 in business value.`;
 
-                    const result = await model.generateContent(prompt);
-                    const response = await result.response;
-                    return response.text();
+                    return await this.aiProvider.generateText(prompt);
                 } catch (error) {
                     console.error('❌ Quantum Writer failed:', error);
                     throw error;
