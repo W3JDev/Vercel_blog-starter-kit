@@ -49,10 +49,16 @@ The Hyperion Content Empire is a self-governing AI ecosystem that automatically:
 
 ### AI Model Integration
 
-- **🤖 OpenAI GPT-4 Turbo** - Creative & strategic content
-- **🧬 Anthropic Claude Opus** - Technical & analytical content  
-- **💎 Google Gemini Pro** - Viral & social optimization
-- **🔗 Multi-model Fusion** - Quantum content synthesis
+- **🤖 Google Gemini Pro** - Primary AI provider (default)
+- **🐙 GitHub Models AI** - Automatic fallback when Gemini unavailable
+- **🔄 Intelligent Fallback** - Seamless provider switching
+- **🛡️ Resilient Generation** - Continues even if primary provider fails
+
+**Provider Priority:**
+1. Google Gemini AI (if `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` is valid)
+2. GitHub Models AI (if `GITHUB_TOKEN` is valid and has model access)
+
+The system automatically detects available providers and selects the best option, ensuring uninterrupted content generation.
 
 ---
 
@@ -71,14 +77,21 @@ npm --version   # Latest
 Create a `.env` file in the root directory:
 
 ```env
-# AI MODEL KEYS (Get free Gemini key at https://aistudio.google.com/app/apikey)
+# AI MODEL KEYS
+# Primary Provider: Google Gemini AI (Get free key at https://aistudio.google.com/app/apikey)
 GEMINI_API_KEY=your_gemini_api_key_here
-GOOGLE_AI_API_KEY=your_google_ai_api_key_here  # Legacy support
-OPENAI_API_KEY=your_openai_api_key_here         # Optional
-ANTHROPIC_API_KEY=your_anthropic_api_key_here   # Optional
+# or
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here
 
 # GITHUB INTEGRATION
+# Used for both repository publishing AND GitHub Models AI (automatic fallback)
+# Get token at: https://github.com/settings/tokens
+# Required scopes: repo (for publishing), model.request (for GitHub Models)
 GITHUB_TOKEN=your_github_token_here
+
+# OPTIONAL: Alternative AI Providers (future support)
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
 # EMPIRE CONFIGURATION
 PORT=3001
@@ -88,6 +101,12 @@ NODE_ENV=production
 ANALYTICS_API_KEY=your_analytics_key_here
 WEBHOOK_SECRET=your_webhook_secret_here
 ```
+
+**Important:** You need at least one of the following:
+- `GEMINI_API_KEY` or `GOOGLE_AI_API_KEY` (preferred)
+- `GITHUB_TOKEN` with `model.request` scope (fallback)
+
+The system will automatically use the best available provider.
 
 ### Installation
 
