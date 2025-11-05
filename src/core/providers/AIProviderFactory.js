@@ -68,14 +68,18 @@ export class AIProviderFactory {
         
         const envApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
         if (envApiKey) {
-            console.log('✅ Found Gemini API key in environment (length:', envApiKey.length, ')');
+            console.log('✅ Found Gemini API key in environment');
             return envApiKey;
         }
 
         // Fallback to Google Cloud Secret Manager (production)
         try {
+            // Use configurable project ID or fall back to default
+            const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID || 'stellar-state-471406-f8';
+            const secretName = process.env.GEMINI_SECRET_NAME || 'GEMINI_API_KEY';
+            const name = `projects/${projectId}/secrets/${secretName}/versions/latest`;
+            
             const client = new SecretManagerServiceClient();
-            const name = 'projects/stellar-state-471406-f8/secrets/GEMINI_API_KEY/versions/latest';
             console.log('🔍 Checking Google Cloud Secret Manager...');
             
             const [version] = await client.accessSecretVersion({ name });
@@ -96,7 +100,7 @@ export class AIProviderFactory {
         
         const token = process.env.GITHUB_TOKEN || process.env.BLOG_GITHUB_TOKEN;
         if (token) {
-            console.log('✅ Found GitHub token in environment (length:', token.length, ')');
+            console.log('✅ Found GitHub token in environment');
             return token;
         }
         

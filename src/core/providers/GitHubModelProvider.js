@@ -52,7 +52,7 @@ export class GitHubModelProvider extends AIProvider {
                 }
             });
 
-            if (response.status !== '200') {
+            if (response.status !== 200) {
                 console.error('⚠️ GitHub Models availability check failed:', response.status);
                 return false;
             }
@@ -83,7 +83,7 @@ export class GitHubModelProvider extends AIProvider {
                 }
             });
 
-            if (response.status !== '200') {
+            if (response.status !== 200) {
                 throw new Error(`GitHub Models API error: ${response.status}`);
             }
 
@@ -114,7 +114,7 @@ export class GitHubModelProvider extends AIProvider {
                 }
             });
 
-            if (response.status !== '200') {
+            if (response.status !== 200) {
                 throw new Error(`GitHub Models API error: ${response.status}`);
             }
 

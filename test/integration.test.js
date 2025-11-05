@@ -16,9 +16,9 @@ process.env.GITHUB_TOKEN = 'mock_token_for_testing';
 
 console.log('🧪 Testing AI Provider Integration\n');
 console.log('Environment:');
-console.log('- GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? `Set (${process.env.GEMINI_API_KEY.length} chars)` : 'Not set');
-console.log('- GOOGLE_AI_API_KEY:', process.env.GOOGLE_AI_API_KEY ? `Set (${process.env.GOOGLE_AI_API_KEY.length} chars)` : 'Not set');
-console.log('- GITHUB_TOKEN:', process.env.GITHUB_TOKEN ? `Set (${process.env.GITHUB_TOKEN.length} chars)` : 'Not set');
+console.log('- GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? 'Set' : 'Not set');
+console.log('- GOOGLE_AI_API_KEY:', process.env.GOOGLE_AI_API_KEY ? 'Set' : 'Not set');
+console.log('- GITHUB_TOKEN:', process.env.GITHUB_TOKEN ? 'Set' : 'Not set');
 console.log('');
 
 // Import after setting env vars
