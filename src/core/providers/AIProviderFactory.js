@@ -11,13 +11,13 @@
 
 import { GeminiProvider } from './GeminiProvider.js';
 import { GitHubModelProvider } from './GitHubModelProvider.js';
+import { DeepSeekProvider } from './DeepSeekProvider.js';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 
 export class AIProviderFactory {
     /**
      * Create an AI provider with automatic fallback
-     * Priority: Gemini -> GitHub Models
-     */
+     * Priority: Gemini -> DeepSeek -> GitHub Models     */
     static async createProvider() {
         console.log('🏭 AI PROVIDER FACTORY: Initializing provider...');
         
@@ -36,6 +36,23 @@ export class AIProviderFactory {
             }
         } else {
             console.log('⚠️ Gemini API key not found, trying fallback...');
+        }
+
+                // Fallback to DeepSeek (Primary fallback - most reliable)
+        const deepseekKey = AIProviderFactory.getDeepSeekApiKey();
+        if (deepseekKey) {
+            console.log('🧪 Testing DeepSeek provider...');
+            const deepseekProvider = new DeepSeekProvider(deepseekKey);
+            const deepseekAvailable = await deepseekProvider.isAvailable();
+            
+            if (deepseekAvailable) {
+                console.log('✅ Using DeepSeek AI for content generation');
+                return deepseekProvider;
+            } else {
+                console.log('⚠️ DeepSeek API key found but provider unavailable, trying next fallback...');
+            }
+        } else {
+            console.log('⚠️ DeepSeek API key not found, trying fallback...');
         }
         
         // Fallback to GitHub Models
@@ -56,8 +73,7 @@ export class AIProviderFactory {
         }
         
         // No provider available
-        throw new Error('No AI provider available. Please configure either GEMINI_API_KEY/GOOGLE_AI_API_KEY or GITHUB_TOKEN.');
-    }
+        throw new Error('No AI provider available. Please configure either GEMINI_API_KEY/GOOGLE_AI_API_KEY, DEEPSEEK_API_KEY, or GITHUB_TOKEN.');    }
 
     /**
      * Get Gemini API key from environment or Secret Manager
@@ -105,6 +121,22 @@ export class AIProviderFactory {
         }
         
         console.log('⚠️ GitHub token not found in environment');
+        return null;
+    }
+
+        /**
+     * Get DeepSeek API key from environment
+     */
+    static getDeepSeekApiKey() {
+        console.log('🔍 Checking for DeepSeek API key in environment...');
+        
+        const apiKey = process.env.DEEPSEEK_API_KEY;
+        if (apiKey) {
+            console.log('✅ Found DeepSeek API key in environment');
+            return apiKey;
+        }
+        
+        console.log('⚠️ DeepSeek API key not found in environment');
         return null;
     }
 }
