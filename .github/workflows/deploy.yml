@@ -35,13 +35,13 @@ jobs:
         
     - name: 🚀 Deploy to Vercel
       run: |
-npm install -g vercel
+        npm install -g vercel
         vercel build --prod --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }}
-        vercel deploy --prebuilt --prod --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }}      env:
+        vercel deploy --prebuilt --prod --scope=${{ secrets.VERCEL_ORG_ID }} --token=${{ secrets.VERCEL_TOKEN }}
+      env:
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}        
   generate-content:
     name: Generate Content
     runs-on: ubuntu-latest
