@@ -44,7 +44,7 @@ jobs:
   generate-content:
     name: Generate Content
     runs-on: ubuntu-latest
-    if: github.event.schedule != ''
+    if: github.event.schedule != '' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: 📥 Checkout Repository
